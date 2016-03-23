@@ -1,13 +1,11 @@
-package aliec2ws;
-
-our @ISA = qw(HTTP::Server::Simple::PSGI);
+package test;
 
 use strict;
 use warnings;
 
+our $VERSION = '0.1';
 
-
-use Dancer;
+use Dancer2;
 use Config::Simple;
 
 use AliEC2::SQLite;
@@ -20,25 +18,6 @@ use Log::Log4perl qw< :easy >;
 use Encode qw(encode);
 
 
-setting log4perl => {
-   tiny => 0,
-   config => '
-      log4perl.logger                      = DEBUG, OnFile, OnScreen
-      log4perl.appender.OnFile             = Log::Log4perl::Appender::File
-      log4perl.appender.OnFile.filename    = sample-debug.log
-      log4perl.appender.OnFile.mode        = append
-      log4perl.appender.OnFile.layout      = Log::Log4perl::Layout::PatternLayout
-      log4perl.appender.OnFile.layout.ConversionPattern = [%d] [%5p] %m%n
-      log4perl.appender.OnScreen           = Log::Log4perl::Appender::ScreenColoredLevels
-      log4perl.appender.OnScreen.color.ERROR = bold red
-      log4perl.appender.OnScreen.color.FATAL = bold red
-      log4perl.appender.OnScreen.color.OFF   = bold green
-      log4perl.appender.OnScreen.Threshold = ERROR
-      log4perl.appender.OnScreen.layout    = Log::Log4perl::Layout::PatternLayout
-      log4perl.appender.OnScreen.layout.ConversionPattern = [%d] >>> %m%n
-   ',
-};
-setting logger => 'log4perl';
 
 
 #set server => "10.0.0.215";
@@ -55,12 +34,9 @@ my $db = AliEC2::SQLite->new();
 my $ec2 = AliEC2::EC2->new($ec2config);
 
 
-sub accept_hook {
-
-error "TESTTEST";
-
-
-}
+get '/' => sub {
+    template 'index';
+};
 
 sub setAlive {
     my $id = shift; 
@@ -245,3 +221,5 @@ print "AliEC2 web service is ready \n";
 dance;
 $running = 0;
 $db->end();
+true;
+to_app();

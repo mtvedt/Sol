@@ -19,20 +19,22 @@ use Net::Curl::Easy qw(:constants);
 use Net::Curl::Form qw(:constants);
 
 sub initialize {
-    my $self = shift; 
+    my $self = shift;    
+    print "________________________________________________ALMOST READY___________________________________________\n";
     $self->{LOCALJOBDB}=new AliEn::Database::CE or return;
+    print "________________________________________________READY___________________________________________\n";
  return 1;
 }
 
 sub submit {
-
+    print "________________________________________________EC2 SUBMIT EXECUTED___________________________________________";
     my $self        = shift;
     my $classad     = shift;
    	#my $executable  = shift;
     my $command   = join " ", @_;
 
-	$self->info("reading config file ".$ENV{ALIEC2_HOME}. "/settings.conf");
-	my $ec2config = new Config::Simple($ENV{ALIEC2_HOME} . "/settings.conf");
+	$self->info("reading config file ".$ENV{ALIEC2_HOME}. "/ec2.conf");
+	my $ec2config = new Config::Simple($ENV{ALIEC2_HOME} . "/ec2.conf");
 
 	print "Command1: $command \n";
 	
@@ -54,21 +56,41 @@ sub submit {
 
     $self->info("USING $self->{SUBMIT_CMD}\nWith  \n$message");
 
-	
+	open FH, ">$ENV{HOME}/userdata.txt";
+	my $agentStartupScript = $execute;
+	my $document = do {
+	   	local $/ = undef;
+		open my $fh, "<", $agentStartupScript
+			or die "could not open $agentStartupScript: $!";
+		<$fh>;
+	};
+
+	my $confCtxFileBefore = $ec2config->param('context_file_before');
+	my $confCtxFileAfter = $ec2config->param('context_file_after');
+
 	# A context file is containing user data for a cern-vm instance,
 	# contextualization data and a script which is executed at startup
-	my $context_file = $ec2config->param('context_file');
+	$self->info("Loading contextalization file: $confCtxFileBefore");
+	if(!open CONTEXTFILEBEFORE, "<$confCtxFileBefore") {
+		$self->info("Can't find context file: $confCtxFileBefore");
+		return 1;
+	}
 
-        my $context;
-            open(my $fh, '<', $context_file) or die "cannot open given VM context file  $context_file";
-            {
-                local $/;
-                $context = <$fh>;
-            }
-            close($fh);
+	$self->info("Loading ctx-file after: $confCtxFileAfter");
+	if(!open CONTEXTFILEAFTER, "<$confCtxFileAfter") {
+		$self->info("Can't fint context file(after): $confCtxFileAfter");
+		return 1;
+	}
 
-        my $encdata = encode('UTF-8', $context, Encode::LEAVE_SRC | Encode::FB_CROAK);
-
+	my $userdata = do { local $/; <CONTEXTFILEBEFORE> };
+	$userdata .= $document . "\n";
+	$userdata .= do { local $/; <CONTEXTFILEAFTER>};
+	close CONTEXTFILEBEFORE;
+	close CONTEXTFILEAFTER;	
+	
+	print FH $userdata;
+	close FH;
+	my $encdata = encode('UTF-8', $userdata, Encode::LEAVE_SRC | Encode::FB_CROAK);
 
 	my $data = $encdata;
 	
@@ -84,7 +106,7 @@ sub submit {
 	$curl->setopt(CURLOPT_TIMEOUT, 10);
 	$curl->setopt(CURLOPT_URL, $url);
 
-       
+        print "________________________SENDING INSTANCE SPAWN REQUEST__________________________\n";
 
 	my $curlf = new Net::Curl::Form();
 	$curlf->add(CURLFORM_COPYNAME ,=> 'script', CURLFORM_COPYCONTENTS ,=> "$data");
@@ -92,23 +114,57 @@ sub submit {
 		
 	$curl->perform();
         
-       
-
-
+        print "_______________________ ______REQUEST SENT_____________________________________\n";
 
 	
     return 0;
 }
 
 sub kill {
+    my $self    = shift;
+    my $queueid = shift;
 
-} 
+    $self->info("test kill");	
+    return "asd";
+}
 
+sub getBatchId {
+   my $self=shift;
+   return $self->{LAST_JOB_ID};
+}
+
+sub getStatus {
+    return 'QUEUED';
+}
+
+sub getOutputFile {
+    my $self = shift;
+    my $queueId = shift;
+    my $output = shift;
+    
+    open OUTPUT, "/tmp/tmpOutput";
+    my @data = <OUTPUT>;
+    close OUTPUT;
+
+    return join("",@data);
+}
+
+sub getAllBatchIds {
+    my @queuedJobs = (); 
+    print "The queuedJobs are @queuedJobs\n";
+    return @queuedJobs;
+}
 
 sub getNumberRunning() {
-   
+    my $self = shift;
+    return $self->getAllBatchIds();
 }
 
 sub getContactByQueueID {
-    
+    my $self = shift;
+    my $queueId = shift;
+    my $info = $self->{LOCALJOBDB}->query("SELECT batchId FROM JOBAGENT where jobId=?", undef, {bind_values=>[$queueId]});
+    my $batchId = (@$info)[0]->{batchId};
+    $self->info("The job $queueId run in the job $batchId");
+    return $batchId;
 }

@@ -52,8 +52,8 @@ sub spawnVirtualMachine {
     
     my $id = "error";
     
-    error "reading config file ".$ENV{ALIEC2_HOME}."/settings.conf";
-	my $ec2config = new Config::Simple($ENV{ALIEC2_HOME} . "/settings.conf");
+    error "reading config file ".$ENV{ALIEC2_HOME}."/ec2.conf";
+	my $ec2config = new Config::Simple($ENV{ALIEC2_HOME} . "/ec2.conf");
 	
 	error "Connecting to OpenStack";
 	my $ec2 = VM::EC2->new(
@@ -93,7 +93,8 @@ sub spawnVirtualMachine {
 
         my $maxNumInstances = $ec2config->param('max_num_vms');
 
-        
+        error "||||||||||||||||||||||||||||||||||||||||||||||| There are $numRunningInstances instances running ||||||||||||||||||||||||||||||||||||||||||| \n";
+        error "11111111111111111111111111111111111111111111111 The current limit is $maxNumInstances 11111111111111111111111111111111111111111111111111111 \n";
 
 	if($numRunningInstances >= $ec2config->param('max_num_vms')) {
 		# cleanup stopped instances?
@@ -141,8 +142,8 @@ sub deleteVirtualMachine {
 	my $self = shift;
 	my $machineID = shift;
     
-    error "reading config file ".$ENV{ALIEC2_HOME}."/settings.conf";
-	my $ec2config = new Config::Simple($ENV{ALIEC2_HOME} . "/settings.conf");
+    error "reading config file ".$ENV{ALIEC2_HOME}."/ec2.conf";
+	my $ec2config = new Config::Simple($ENV{ALIEC2_HOME} . "/ec2.conf");
 	
 	error "Connecting to OpenStack";
 	my $ec2 = VM::EC2->new(
@@ -182,8 +183,8 @@ sub deleteVirtualMachine {
 sub getVirtualMachines {
         
 
-    error "reading config file ".$ENV{ALIEC2_HOME}."/settings.conf";
-        my $ec2config = new Config::Simple($ENV{ALIEC2_HOME} . "/settings.conf");
+    error "reading config file ".$ENV{ALIEC2_HOME}."/ec2.conf";
+        my $ec2config = new Config::Simple($ENV{ALIEC2_HOME} . "/ec2.conf");
 
         error "Connecting to OpenStack";
         my $ec2 = VM::EC2->new(
@@ -201,7 +202,75 @@ sub getVirtualMachines {
         return @runningInstances;
 };
 
+sub createInstanceSnapshot {
 
+        my $self = shift;
+        my $machineID = shift;
+
+    error "reading config file ".$ENV{ALIEC2_HOME}."/ec2.conf";
+        my $ec2config = new Config::Simple($ENV{ALIEC2_HOME} . "/ec2.conf");
+
+        error "Connecting to OpenStack";
+        my $ec2 = VM::EC2->new(
+                -access_key => $ec2config->param('ec2_access_key'),
+                -secret_key => $ec2config->param('ec2_secret_key'),
+                -endpoint   => $ec2config->param('ec2_url'));
+
+        if(!$ec2) {
+                error "Can't connect to OS";
+                return 2;
+        }
+
+        my @runningInstances = $ec2->describe_instances({
+            'privateDnsName' => $machineID
+        });
+
+        my $num = @runningInstances;
+
+        foreach(@runningInstances) {
+
+            if($_->privateDnsName eq $machineID) {
+                error "Found Instance ". $_->privateDnsName .". Creating snapshot...";
+               $ec2->create_image(-instance_id=>$_,-name=>'auto-snapshot');
+               $ec2->register_image(-name=>'auto-snapshot');
+                return 0;
+            }
+        }
+
+        if( $num == 0 ) {
+            error "No such instance $machineID";
+            return 3;
+        }
+
+        error "An error occurred while creating the EC2 snapshot. A snapshot is possibly already present.";
+
+#my @snapshots = $ec2->describe_snapshots();
+
+#print "The current snapshots are: @snapshots \n";
+
+#my @volumes = $ec2->describe_volumes();
+
+#  foreach(@volumes) {
+
+#  print "The current VolumeID is $_->volume_id , or $_->id , or perhaps just $_";
+
+#  $ec2->create_snapshot($_);
+
+#}
+
+#  print "The current volumes are: @volumes \n";
+
+#  my @snapshots2 = $ec2->describe_snapshots();
+
+#print "The snapshots are now: @snapshots2 \n";
+
+
+
+        return 1;
+
+
+
+}
 
 1;
 

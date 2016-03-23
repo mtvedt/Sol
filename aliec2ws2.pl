@@ -1,13 +1,12 @@
-package aliec2ws;
+#!/usr/bin/perl
+# userdata 169.254.169.254/latest/user-data
 
-our @ISA = qw(HTTP::Server::Simple::PSGI);
-
-use strict;
 use warnings;
 
 
 
-use Dancer;
+use Dancer2;
+
 use Config::Simple;
 
 use AliEC2::SQLite;
@@ -19,30 +18,31 @@ use Log::Log4perl qw< :easy >;
 
 use Encode qw(encode);
 
-
-setting log4perl => {
-   tiny => 0,
-   config => '
-      log4perl.logger                      = DEBUG, OnFile, OnScreen
-      log4perl.appender.OnFile             = Log::Log4perl::Appender::File
-      log4perl.appender.OnFile.filename    = sample-debug.log
-      log4perl.appender.OnFile.mode        = append
-      log4perl.appender.OnFile.layout      = Log::Log4perl::Layout::PatternLayout
-      log4perl.appender.OnFile.layout.ConversionPattern = [%d] [%5p] %m%n
-      log4perl.appender.OnScreen           = Log::Log4perl::Appender::ScreenColoredLevels
-      log4perl.appender.OnScreen.color.ERROR = bold red
-      log4perl.appender.OnScreen.color.FATAL = bold red
-      log4perl.appender.OnScreen.color.OFF   = bold green
-      log4perl.appender.OnScreen.Threshold = ERROR
-      log4perl.appender.OnScreen.layout    = Log::Log4perl::Layout::PatternLayout
-      log4perl.appender.OnScreen.layout.ConversionPattern = [%d] >>> %m%n
-   ',
-};
-setting logger => 'log4perl';
+#setting log4perl => {
+#   tiny => 0,
+#   config => '
+#      log4perl.logger                      = DEBUG, OnFile, OnScreen
+#      log4perl.appender.OnFile             = Log::Log4perl::Appender::File
+#      log4perl.appender.OnFile.filename    = sample-debug.log
+#      log4perl.appender.OnFile.mode        = append
+#      log4perl.appender.OnFile.layout      = Log::Log4perl::Layout::PatternLayout
+#      log4perl.appender.OnFile.layout.ConversionPattern = [%d] [%5p] %m%n
+#      log4perl.appender.OnScreen           = Log::Log4perl::Appender::ScreenColoredLevels
+#      log4perl.appender.OnScreen.color.ERROR = bold red
+#      log4perl.appender.OnScreen.color.FATAL = bold red
+#      log4perl.appender.OnScreen.color.OFF   = bold green
+#      log4perl.appender.OnScreen.Threshold = ERROR
+#      log4perl.appender.OnScreen.layout    = Log::Log4perl::Layout::PatternLayout
+#      log4perl.appender.OnScreen.layout.ConversionPattern = [%d] >>> %m%n
+#   ',
+#};
+#setting logger => 'log4perl';
 
 
 #set server => "10.0.0.215";
 set port => 8080;
+
+
 
 my $alienHome = $ENV{ALIEN_HOME};
 my $aliec2Home = $ENV{ALIEC2_HOME};
@@ -54,13 +54,31 @@ my $running = 1;
 my $db = AliEC2::SQLite->new();
 my $ec2 = AliEC2::EC2->new($ec2config);
 
+#     hook before {
+#
+#         error "----------------------- Accept hook in use --------------------------------";
+#         my $self = shift;
+#         my $fh   = $self->stdio_handle;
+#
+#         $self->SUPER::accept_hook(@_);
+#
+#         my $newfh =
+#         IO::Socket::SSL->start_SSL( $fh,
+#
+#
+#             SSL_server    => 1,
+#             SSL_use_cert  => 1,
+#             SSL_cert_file => $ec2config->param('cert_file'),
+#             SSL_key_file  => $ec2config->param('key_file'),
+#         )
+#         or warn "problem setting up SSL socket: " .
+ #IO::Socket::SSL::errstr();
+#
+#
+#
+#         $self->stdio_handle($newfh) if $newfh;
+#     };
 
-sub accept_hook {
-
-error "TESTTEST";
-
-
-}
 
 sub setAlive {
     my $id = shift; 
@@ -108,7 +126,6 @@ sub addVM {
 
 
 get '/alive/:id' => sub {
-no strict 'refs';
 	my $id = param('id');
     setAlive($id);
 };
